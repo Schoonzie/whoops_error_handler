@@ -1,0 +1,3 @@
+name = whoops
+description = Provides better error reporting for developing drupal sites.
+core = 7.x

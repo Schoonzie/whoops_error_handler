@@ -1,0 +1,27 @@
+<?php
+
+/**
+ * Include the includes.
+ */
+require 'includes/autoload.php';
+
+
+/**
+ * @file
+ * whoops.module
+ */
+
+
+/**
+ * Implements hook_boot()
+ */
+function whoops_boot() {
+
+	if(empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) != 'xmlhttprequest') {
+
+		$whoops = new \Whoops\Run;
+		$whoops->pushHandler(new \Whoops\Handler\PrettyPageHandler);
+		$whoops->register();
+
+	}
+}
