@@ -7,10 +7,10 @@
 */
 
 namespace Whoops\Handler;
-use Whoops\Handler\Handler;
+
 use InvalidArgumentException;
-use Whoops\Exception\Frame;
 use Psr\Log\LoggerInterface;
+use Whoops\Exception\Frame;
 
 /**
 * Handler outputing plaintext error messages. Can be used
@@ -22,9 +22,14 @@ class PlainTextHandler extends Handler
     const VAR_DUMP_PREFIX = '   | ';
 
     /**
-     * @var Psr\Log\LoggerInterface
+     * @var \Psr\Log\LoggerInterface
      */
     protected $logger;
+
+    /**
+     * @var callable
+     */
+    protected $dumper;
 
     /**
      * @var bool
@@ -44,22 +49,12 @@ class PlainTextHandler extends Handler
     /**
      * @var bool
      */
-    private $onlyForCommandLine = false;
-
-    /**
-     * @var bool
-     */
-    private $outputOnlyIfCommandLine = true;
-
-    /**
-     * @var bool
-     */
     private $loggerOnly = false;
 
     /**
      * Constructor.
-     * @throws InvalidArgumentException If argument is not null or a LoggerInterface
-     * @param Psr\Log\LoggerInterface|null $logger
+     * @throws InvalidArgumentException     If argument is not null or a LoggerInterface
+     * @param  \Psr\Log\LoggerInterface|null $logger
      */
     public function __construct($logger = null)
     {
@@ -68,13 +63,13 @@ class PlainTextHandler extends Handler
 
     /**
      * Set the output logger interface.
-     * @throws InvalidArgumentException If argument is not null or a LoggerInterface
-     * @param Psr\Log\LoggerInterface|null $logger
+     * @throws InvalidArgumentException     If argument is not null or a LoggerInterface
+     * @param  \Psr\Log\LoggerInterface|null $logger
      */
     public function setLogger($logger = null)
     {
-        if(! (is_null($logger)
-            || $logger InstanceOf LoggerInterface)) {
+        if (! (is_null($logger)
+            || $logger instanceof LoggerInterface)) {
             throw new InvalidArgumentException(
                 'Argument to ' . __METHOD__ .
                 " must be a valid Logger Interface (aka. Monolog), " .
@@ -86,7 +81,7 @@ class PlainTextHandler extends Handler
     }
 
     /**
-     * @return Psr\Log\LoggerInterface|null
+     * @return \Psr\Log\LoggerInterface|null
      */
     public function getLogger()
     {
@@ -94,13 +89,24 @@ class PlainTextHandler extends Handler
     }
 
     /**
+     * Set var dumper callback function.
+     *
+     * @param  callable $dumper
+     * @return void
+     */
+    public function setDumper(callable $dumper)
+    {
+        $this->dumper = $dumper;
+    }
+
+    /**
      * Add error trace to output.
-     * @param bool|null $addTraceToOutput
+     * @param  bool|null  $addTraceToOutput
      * @return bool|$this
      */
     public function addTraceToOutput($addTraceToOutput = null)
     {
-        if(func_num_args() == 0) {
+        if (func_num_args() == 0) {
             return $this->addTraceToOutput;
         }
 
@@ -111,19 +117,18 @@ class PlainTextHandler extends Handler
     /**
      * Add error trace function arguments to output.
      * Set to True for all frame args, or integer for the n first frame args.
-     * @param bool|integer|null $addTraceFunctionArgsToOutput
+     * @param  bool|integer|null $addTraceFunctionArgsToOutput
      * @return null|bool|integer
      */
     public function addTraceFunctionArgsToOutput($addTraceFunctionArgsToOutput = null)
     {
-        if(func_num_args() == 0) {
+        if (func_num_args() == 0) {
             return $this->addTraceFunctionArgsToOutput;
         }
 
-        if(! is_integer($addTraceFunctionArgsToOutput)) {
+        if (! is_integer($addTraceFunctionArgsToOutput)) {
             $this->addTraceFunctionArgsToOutput = (bool) $addTraceFunctionArgsToOutput;
-        }
-        else {
+        } else {
             $this->addTraceFunctionArgsToOutput = $addTraceFunctionArgsToOutput;
         }
     }
@@ -140,6 +145,22 @@ class PlainTextHandler extends Handler
     }
 
     /**
+     * Create plain text response and return it as a string
+     * @return string
+     */
+    public function generateResponse()
+    {
+        $exception = $this->getException();
+        return sprintf("%s: %s in file %s on line %d%s\n",
+            get_class($exception),
+            $exception->getMessage(),
+            $exception->getFile(),
+            $exception->getLine(),
+            $this->getTraceOutput()
+        );
+    }
+
+    /**
      * Get the size limit in bytes of frame arguments var_dump output.
      * If the limit is reached, the var_dump output is discarded.
      * Prevent memory limit errors.
@@ -151,63 +172,17 @@ class PlainTextHandler extends Handler
     }
 
     /**
-     * Restrict error handling to command line calls.
-     * @param bool|null $onlyForCommandLine
-     * @return null|bool
-     */
-    public function onlyForCommandLine($onlyForCommandLine = null)
-    {
-        if(func_num_args() == 0) {
-            return $this->onlyForCommandLine;
-        }
-        $this->onlyForCommandLine = (bool) $onlyForCommandLine;
-    }
-
-    /**
-     * Output the error message only if using command line.
-     * else, output to logger if available.
-     * Allow to safely add this handler to web pages.
-     * @param bool|null $outputOnlyIfCommandLine
-     * @return null|bool
-     */
-    public function outputOnlyIfCommandLine($outputOnlyIfCommandLine = null)
-    {
-        if(func_num_args() == 0) {
-            return $this->outputOnlyIfCommandLine;
-        }
-        $this->outputOnlyIfCommandLine = (bool) $outputOnlyIfCommandLine;
-    }
-
-    /**
      * Only output to logger.
-     * @param bool|null $loggerOnly
+     * @param  bool|null $loggerOnly
      * @return null|bool
      */
     public function loggerOnly($loggerOnly = null)
     {
-        if(func_num_args() == 0) {
+        if (func_num_args() == 0) {
             return $this->loggerOnly;
         }
 
         $this->loggerOnly = (bool) $loggerOnly;
-    }
-
-    /**
-     * Check, if possible, that this execution was triggered by a command line.
-     * @return bool
-     */
-    private function isCommandLine()
-    {
-        return PHP_SAPI == 'cli';
-    }
-
-    /**
-     * Test if handler can process the exception..
-     * @return bool
-     */
-    private function canProcess()
-    {
-        return $this->isCommandLine() || !$this->onlyForCommandLine();
     }
 
     /**
@@ -216,27 +191,26 @@ class PlainTextHandler extends Handler
      */
     private function canOutput()
     {
-        return ($this->isCommandLine() || ! $this->outputOnlyIfCommandLine())
-            && ! $this->loggerOnly();
+        return !$this->loggerOnly();
     }
 
     /**
      * Get the frame args var_dump.
      * @param  \Whoops\Exception\Frame $frame [description]
-     * @param  integer $line  [description]
+     * @param  integer                 $line  [description]
      * @return string
      */
     private function getFrameArgsOutput(Frame $frame, $line)
     {
-        if($this->addTraceFunctionArgsToOutput() === false
+        if ($this->addTraceFunctionArgsToOutput() === false
             || $this->addTraceFunctionArgsToOutput() < $line) {
             return '';
         }
 
         // Dump the arguments:
         ob_start();
-        var_dump($frame->getArgs());
-        if(ob_get_length() > $this->getTraceFunctionArgsOutputLimit()) {
+        $this->dump($frame->getArgs());
+        if (ob_get_length() > $this->getTraceFunctionArgsOutputLimit()) {
             // The argument var_dump is to big.
             // Discarded to limit memory usage.
             ob_clean();
@@ -253,12 +227,27 @@ class PlainTextHandler extends Handler
     }
 
     /**
+     * Dump variable.
+     *
+     * @param mixed $var
+     * @return void
+     */
+    protected function dump($var)
+    {
+        if ($this->dumper) {
+            call_user_func($this->dumper, $var);
+        } else {
+            var_dump($var);
+        }
+    }
+
+    /**
      * Get the exception trace as plain text.
      * @return string
      */
     private function getTraceOutput()
     {
-        if(! $this->addTraceToOutput()) {
+        if (! $this->addTraceToOutput()) {
             return '';
         }
         $inspector = $this->getInspector();
@@ -267,12 +256,12 @@ class PlainTextHandler extends Handler
         $response = "\nStack trace:";
 
         $line = 1;
-        foreach($frames as $frame) {
+        foreach ($frames as $frame) {
             /** @var Frame $frame */
             $class = $frame->getClass();
 
             $template = "\n%3d. %s->%s() %s:%d%s";
-            if(! $class) {
+            if (! $class) {
                 // Remove method arrow (->) from output.
                 $template = "\n%3d. %s%s() %s:%d%s";
             }
@@ -298,35 +287,26 @@ class PlainTextHandler extends Handler
      */
     public function handle()
     {
-        if(! $this->canProcess()) {
+        $response = $this->generateResponse();
+
+        if ($this->getLogger()) {
+            $this->getLogger()->error($response);
+        }
+
+        if (! $this->canOutput()) {
             return Handler::DONE;
-        }
-
-        $exception = $this->getException();
-
-        $response = sprintf("%s: %s in file %s on line %d%s\n",
-                get_class($exception),
-                $exception->getMessage(),
-                $exception->getFile(),
-                $exception->getLine(),
-                $this->getTraceOutput()
-            );
-
-        if($this->getLogger()) {
-            $this->getLogger()->addError($response);
-        }
-
-        if(! $this->canOutput()) {
-            return Handler::DONE;
-        }
-
-        if(class_exists('\Whoops\Util\Misc')
-            && \Whoops\Util\Misc::canSendHeaders()) {
-            header('Content-Type: text/plain');
         }
 
         echo $response;
 
         return Handler::QUIT;
+    }
+
+    /**
+     * @return string
+     */
+    public function contentType()
+    {
+        return 'text/plain';
     }
 }
