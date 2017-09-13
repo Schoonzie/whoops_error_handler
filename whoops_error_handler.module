@@ -12,7 +12,7 @@ require 'includes/autoload.php';
 /**
  * Implements hook_boot()
  */
-function whoops_boot() {
+function whoops_error_handler_boot() {
 
 	if(!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
 		return;
