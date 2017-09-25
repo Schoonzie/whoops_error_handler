@@ -14,12 +14,12 @@ require 'includes/autoload.php';
  */
 function whoops_error_handler_boot() {
 
-	if(!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
-		return;
-	}
-
-	$whoops = new \Whoops\Run();
-	$whoops->pushHandler(new \Whoops\Handler\PrettyPageHandler);
-	$whoops->register();
+  if((!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') || drupal_is_cli()) {
+    return;
+  }
+  
+  $whoops = new \Whoops\Run();
+  $whoops->pushHandler(new \Whoops\Handler\PrettyPageHandler);
+  $whoops->register();
 
 }
